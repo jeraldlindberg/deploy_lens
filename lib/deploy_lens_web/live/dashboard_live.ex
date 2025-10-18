@@ -45,15 +45,24 @@ defmodule DeployLensWeb.DashboardLive do
     run_id = String.to_integer(run_id)
 
     if Map.has_key?(socket.assigns.jobs_cache, run_id) do
-      socket = update(socket, :expanded_runs, &MapSet.toggle(&1, run_id))
+      # If cached, manually toggle the run_id in the expanded_runs set.
+      socket =
+        update(socket, :expanded_runs, fn expanded_runs ->
+          if MapSet.member?(expanded_runs, run_id) do
+            MapSet.delete(expanded_runs, run_id)
+          else
+            MapSet.put(expanded_runs, run_id)
+          end
+        end)
+
       {:noreply, socket}
     else
+      # Fetch the jobs asynchronously if not in cache
       socket = update(socket, :loading_jobs, &MapSet.put(&1, run_id))
       token = Application.get_env(:deploy_lens, :github_token)
       client = GitHubClient.new(token)
       %{owner: owner, repo: repo} = socket.assigns
 
-      # This Task.async call sends a message like {#Reference, result}
       Task.async(fn ->
         case GitHubClient.get_workflow_run_jobs(client, owner, repo, run_id) do
           {:ok, %{body: %{"jobs" => jobs}}} -> {:jobs_fetched, run_id, jobs}
@@ -66,33 +75,35 @@ defmodule DeployLensWeb.DashboardLive do
   end
 
   # --- This function remains the same, but the task now returns the message ---
-def handle_event("fetch_logs", %{"job-id" => job_id}, socket) do
-  job_id = String.to_integer(job_id)
+  def handle_event("fetch_logs", %{"job-id" => job_id}, socket) do
+    job_id = String.to_integer(job_id)
 
-  if Map.has_key?(socket.assigns.log_cache, job_id) do
-    {:noreply, socket}
-  else
-    socket = update(socket, :loading_logs, &MapSet.put(&1, job_id))
-    token = Application.get_env(:deploy_lens, :github_token)
-    client = GitHubClient.new(token)
-    %{owner: owner, repo: repo} = socket.assigns
+    if Map.has_key?(socket.assigns.log_cache, job_id) do
+      {:noreply, socket}
+    else
+      socket = update(socket, :loading_logs, &MapSet.put(&1, job_id))
+      token = Application.get_env(:deploy_lens, :github_token)
+      client = GitHubClient.new(token)
+      %{owner: owner, repo: repo} = socket.assigns
 
-    Task.async(fn ->
-      # --- MODIFICATION START ---
-      # Call the API once, store the result, and print it to the console
-      result = GitHubClient.get_job_logs(client, owner, repo, job_id)
-      IO.inspect(result, label: "GitHub LOGS API RESPONSE")
+      Task.async(fn ->
+        # --- MODIFICATION START ---
+        # Call the API once, store the result, and print it to the console
+        result = GitHubClient.get_job_logs(client, owner, repo, job_id)
+        IO.inspect(result, label: "GitHub LOGS API RESPONSE")
 
-      # Now, use the stored result in the case statement
-      case result do
-      # --- MODIFICATION END ---
-        {:ok, %{body: logs}} -> {:logs_fetched, job_id, logs}
-        {:error, reason} -> {:logs_failed, job_id, reason}
-      end
-    end)
-    {:noreply, socket}
+        # Now, use the stored result in the case statement
+        case result do
+          # --- MODIFICATION END ---
+          {:ok, %{body: logs}} -> {:logs_fetched, job_id, logs}
+          {:error, reason} -> {:logs_failed, job_id, reason}
+        end
+      end)
+
+      {:noreply, socket}
+    end
   end
-end
+
   # --- CORRECTED ---
   # Handles successful job fetch.
   def handle_info({_ref, {:jobs_fetched, run_id, jobs}}, socket) do
@@ -100,7 +111,8 @@ end
       socket
       |> update(:jobs_cache, &Map.put(&1, run_id, jobs))
       |> update(:loading_jobs, &MapSet.delete(&1, run_id))
-      |> update(:expanded_runs, &MapSet.put(&1, run_id)) # Auto-expand when loaded
+      # Auto-expand when loaded
+      |> update(:expanded_runs, &MapSet.put(&1, run_id))
 
     {:noreply, socket}
   end
@@ -136,6 +148,7 @@ end
 
     {:noreply, socket}
   end
+
   # Catch-all to ignore any other messages the process receives
   def handle_info(_msg, socket), do: {:noreply, socket}
 end
