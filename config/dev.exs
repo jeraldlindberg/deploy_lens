@@ -1,7 +1,5 @@
 import Config
 
-config :deploy_lens,
-  github_token: System.get_env("GITHUB_TOKEN") || "YOUR_GITHUB_PAT_HERE"
 
 # Configure your database
 config :deploy_lens, DeployLens.Repo,
