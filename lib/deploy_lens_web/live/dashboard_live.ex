@@ -16,6 +16,7 @@ defmodule DeployLensWeb.DashboardLive do
        jobs_cache: %{},
        log_cache: %{},
        expanded_runs: MapSet.new(),
+       expanded_logs: MapSet.new(),
        loading_jobs: MapSet.new(),
        loading_logs: MapSet.new()
      )}
@@ -23,7 +24,7 @@ defmodule DeployLensWeb.DashboardLive do
 
   @impl true
   def handle_event("fetch_runs", %{"owner" => owner, "repo" => repo}, socket) do
-    token = Application.get_env(:deploy_lens, :github_token)
+    token = Application.get_env(:deploy_lens, :github_pat)
     client = GitHubClient.new(token)
     socket = assign(socket, loading: true, owner: owner, repo: repo)
 
@@ -58,8 +59,7 @@ defmodule DeployLensWeb.DashboardLive do
       {:noreply, socket}
     else
       # Fetch the jobs asynchronously if not in cache
-      socket = update(socket, :loading_jobs, &MapSet.put(&1, run_id))
-      token = Application.get_env(:deploy_lens, :github_token)
+      token = Application.get_env(:deploy_lens, :github_pat)
       client = GitHubClient.new(token)
       %{owner: owner, repo: repo} = socket.assigns
 
@@ -74,6 +74,21 @@ defmodule DeployLensWeb.DashboardLive do
     end
   end
 
+  def handle_event("toggle_logs", %{"job-id" => job_id}, socket) do
+    job_id = String.to_integer(job_id)
+
+    socket =
+      update(socket, :expanded_logs, fn expanded_logs ->
+        if MapSet.member?(expanded_logs, job_id) do
+          MapSet.delete(expanded_logs, job_id)
+        else
+          MapSet.put(expanded_logs, job_id)
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
   # --- This function remains the same, but the task now returns the message ---
   def handle_event("fetch_logs", %{"job-id" => job_id}, socket) do
     job_id = String.to_integer(job_id)
@@ -82,7 +97,7 @@ defmodule DeployLensWeb.DashboardLive do
       {:noreply, socket}
     else
       socket = update(socket, :loading_logs, &MapSet.put(&1, job_id))
-      token = Application.get_env(:deploy_lens, :github_token)
+      token = Application.get_env(:deploy_lens, :github_pat)
       client = GitHubClient.new(token)
       %{owner: owner, repo: repo} = socket.assigns
 
@@ -106,6 +121,7 @@ defmodule DeployLensWeb.DashboardLive do
 
   # --- CORRECTED ---
   # Handles successful job fetch.
+  @impl true
   def handle_info({_ref, {:jobs_fetched, run_id, jobs}}, socket) do
     socket =
       socket
@@ -117,13 +133,14 @@ defmodule DeployLensWeb.DashboardLive do
     {:noreply, socket}
   end
 
-  # --- CORRECTED ---
   # Handles successful log fetch.
+  @impl true
   def handle_info({_ref, {:logs_fetched, job_id, logs}}, socket) do
     socket =
       socket
       |> update(:log_cache, &Map.put(&1, job_id, logs))
       |> update(:loading_logs, &MapSet.delete(&1, job_id))
+      |> update(:expanded_logs, &MapSet.put(&1, job_id))
 
     {:noreply, socket}
   end
