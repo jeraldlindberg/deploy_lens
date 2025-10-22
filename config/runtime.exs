@@ -1,5 +1,13 @@
 import Config
 
+github_pat =
+  System.get_env("GITHUB_PAT") ||
+    raise """
+    environment variable GITHUB_PAT is missing.
+    """
+
+config :deploy_lens, :github_pat, github_pat
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
