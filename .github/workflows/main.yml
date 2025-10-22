@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run a multi-line script
+        run: |
+          echo "This is a test job."
+          echo "It has multiple steps."
+          echo "Current time: $(date)"
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Deploy step
+        run: |
+          echo "Deploying..."
+          sleep 5
+          echo "Deployment complete."
+
+  job_with_random_numbers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate random numbers
+        run: |
+          echo "Here are some random numbers:"
+          for i in {1..5}; do
+            echo $RANDOM
+          done
