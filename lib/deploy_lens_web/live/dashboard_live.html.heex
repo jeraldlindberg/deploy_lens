@@ -97,9 +97,10 @@
                             />
                           </div>
                         </.button>
+                        <.button class="btn-sm" phx-hook="CopyToClipboard" data-target={"#log-#{job["id"]}"}>Copy</.button>
                       </div>
                       <%= if job["id"] in @expanded_logs do %>
-                        <pre class="bg-gray-800 text-white text-sm p-4 rounded-md mt-2 max-h-96 overflow-auto"><%= logs %></pre>
+                        <pre id={"log-#{job["id"]}"} class="bg-gray-800 text-white text-sm p-4 rounded-md mt-2 max-h-96 overflow-auto pre-wrap"><%= raw(format_log(logs)) %></pre>
                       <% end %>
                     <% else %>
                       <.button

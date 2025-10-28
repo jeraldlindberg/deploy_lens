@@ -239,4 +239,17 @@ defmodule DeployLensWeb.DashboardLive do
       "in #{remaining_minutes} minutes"
     end
   end
+
+  defp format_log(log) do
+    ~r/(\[(?<timestamp>.*?)\]) (\<(?<level>.*?)\>) (?<message>.*)/s
+    |> Regex.named_captures(log)
+    |> case do
+      %{"timestamp" => ts, "level" => level, "message" => msg} ->
+        [~s(<span class="text-green-400">[), ~s(#{ts}), ~s(]</span> ),
+         ~s(<span class="text-blue-400">&lt;), ~s(#{level}), ~s(&gt;</span> ),
+         msg]
+      _ ->
+        log
+    end
+  end
 end
