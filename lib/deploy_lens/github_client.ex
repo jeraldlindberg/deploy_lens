@@ -83,4 +83,8 @@ defmodule DeployLens.GitHubClient do
   def get_deployments(client, owner, repo) do
     get(client, "/repos/#{owner}/#{repo}/deployments")
   end
+
+  def get_rate_limit(client) do
+    get(client, "/rate_limit")
+  end
 end
