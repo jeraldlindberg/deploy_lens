@@ -34,36 +34,49 @@ defmodule DeployLens.GitHubClient do
 
   # Gets the raw log content for a specific job by handling redirects manually.
   def get_job_logs(client, owner, repo, job_id) do
-    # For this call ONLY, disable autoredirects and skip the JSON parser.
-    opts = [adapter: [autoredirect: false], tesla: [skip: [Tesla.Middleware.JSON]]]
+    case DeployLens.LogCache.get(job_id) do
+      {:ok, logs} ->
+        {:ok, logs}
 
-    # First, we ask GitHub for the log URL.
-    case get(client, "/repos/#{owner}/#{repo}/actions/jobs/#{job_id}/logs", opts: opts) do
-      # GitHub responded with a 302 Redirect, which is what we expect.
-      {:ok, %{status: 302, headers: headers}} ->
-        # --- MODIFIED: Case-insensitive header lookup ---
-        # Convert header keys to lowercase to find "location" reliably.
-        normalized_headers =
-          Enum.into(headers, %{}, fn {key, val} -> {String.downcase(key), val} end)
+      {:error, :not_found} ->
+        # For this call ONLY, disable autoredirects and skip the JSON parser.
+        opts = [adapter: [autoredirect: false], tesla: [skip: [Tesla.Middleware.JSON]]]
 
-        case Map.get(normalized_headers, "location") do
-          nil ->
-            # Log the headers so we can see what we got
-            IO.inspect(headers, label: "Headers received without 'location'")
-            {:error, :no_location_header}
+        # First, we ask GitHub for the log URL.
+        case get(client, "/repos/#{owner}/#{repo}/actions/jobs/#{job_id}/logs", opts: opts) do
+          # GitHub responded with a 302 Redirect, which is what we expect.
+          {:ok, %{status: 302, headers: headers}} ->
+            # --- MODIFIED: Case-insensitive header lookup ---
+            # Convert header keys to lowercase to find "location" reliably.
+            normalized_headers =
+              Enum.into(headers, %{}, fn {key, val} -> {String.downcase(key), val} end)
 
-          location_url ->
-            # Now, make a fresh, clean request to the Azure URL.
-            Tesla.get(location_url)
+            case Map.get(normalized_headers, "location") do
+              nil ->
+                # Log the headers so we can see what we got
+                IO.inspect(headers, label: "Headers received without 'location'")
+                {:error, :no_location_header}
+
+              location_url ->
+                # Now, make a fresh, clean request to the Azure URL.
+                case Tesla.get(location_url) do
+                  {:ok, %{status: 200, body: logs}} = success_response ->
+                    DeployLens.LogCache.put(job_id, logs)
+                    success_response
+
+                  error_response ->
+                    error_response
+                end
+            end
+
+          # Handle cases where GitHub returns an error directly.
+          {:error, reason} ->
+            {:error, reason}
+
+          # Handle unexpected success (e.g., if logs were in the body).
+          {:ok, result} ->
+            {:ok, result}
         end
-
-      # Handle cases where GitHub returns an error directly.
-      {:error, reason} ->
-        {:error, reason}
-
-      # Handle unexpected success (e.g., if logs were in the body).
-      {:ok, result} ->
-        {:ok, result}
     end
   end
 

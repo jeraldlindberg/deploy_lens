@@ -14,6 +14,7 @@ defmodule DeployLens.Application do
       {Phoenix.PubSub, name: DeployLens.PubSub},
       # Start a worker by calling: DeployLens.Worker.start_link(arg)
       # {DeployLens.Worker, arg},
+      DeployLens.LogCache,
       # Start to serve requests, typically the last entry
       DeployLensWeb.Endpoint
     ]
