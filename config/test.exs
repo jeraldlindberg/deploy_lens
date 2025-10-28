@@ -9,7 +9,8 @@ config :deploy_lens, DeployLens.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "deploy_lens_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "deploy_lens_test",
+  port: 5433,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 

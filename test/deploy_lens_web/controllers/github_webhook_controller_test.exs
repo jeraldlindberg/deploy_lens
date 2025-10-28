@@ -53,6 +53,7 @@ defmodule DeployLensWeb.GithubWebhookControllerTest do
         "action": "completed",
         "workflow_job": {
           "id": 789,
+          "run_id": 123,
           "name": "build",
           "status": "completed",
           "conclusion": "success",

@@ -41,7 +41,7 @@ defmodule DeployLensWeb.GithubWebhookController do
     end
   end
 
-  defp handle_workflow_job_event(conn, %{"workflow_job" => job, "workflow_run" => run}) do
+  defp handle_workflow_job_event(conn, %{"workflow_job" => job}) do
     steps_data = case job["steps"] do
       list when is_list(list) -> Enum.with_index(list) |> Map.new(fn {item, index} -> {"step_#{index}", item} end)
       map when is_map(map) -> map
@@ -50,7 +50,7 @@ defmodule DeployLensWeb.GithubWebhookController do
 
     workflow_job_data = %{
       github_id: job["id"],
-      workflow_run_id: run["id"],
+      workflow_run_id: job["run_id"],
       name: job["name"],
       status: job["status"],
       conclusion: job["conclusion"],
