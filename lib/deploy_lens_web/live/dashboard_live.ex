@@ -119,8 +119,8 @@ defmodule DeployLensWeb.DashboardLive do
 
         # Now, use the stored result in the case statement
         case result do
-          # --- MODIFICATION END ---
           {:ok, %{body: logs}} -> {:logs_fetched, job_id, logs}
+          {:ok, logs} when is_binary(logs) -> {:logs_fetched, job_id, logs}
           {:error, :rate_limit_low} -> {:logs_failed, job_id, :rate_limit_low}
           {:error, reason} -> {:logs_failed, job_id, reason}
         end
