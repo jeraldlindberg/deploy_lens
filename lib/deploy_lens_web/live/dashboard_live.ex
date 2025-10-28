@@ -32,6 +32,9 @@ defmodule DeployLensWeb.DashboardLive do
       {:ok, %{body: %{"workflow_runs" => runs}}} ->
         {:noreply, assign(socket, workflow_runs: runs, loading: false)}
 
+      {:error, :rate_limit_low} ->
+        {:noreply, put_flash(socket, :error, "GitHub API rate limit is low. Please try again later.")}
+
       {:ok, %{status: status, body: body}} ->
         error_msg = "GitHub API returned status #{status}: #{inspect(body)}"
         {:noreply, socket |> put_flash(:error, error_msg) |> assign(loading: false)}
@@ -66,6 +69,7 @@ defmodule DeployLensWeb.DashboardLive do
       Task.async(fn ->
         case GitHubClient.get_workflow_run_jobs(client, owner, repo, run_id) do
           {:ok, %{body: %{"jobs" => jobs}}} -> {:jobs_fetched, run_id, jobs}
+          {:error, :rate_limit_low} -> {:jobs_failed, run_id, :rate_limit_low}
           {:error, reason} -> {:jobs_failed, run_id, reason}
         end
       end)
@@ -111,6 +115,7 @@ defmodule DeployLensWeb.DashboardLive do
         case result do
           # --- MODIFICATION END ---
           {:ok, %{body: logs}} -> {:logs_fetched, job_id, logs}
+          {:error, :rate_limit_low} -> {:logs_failed, job_id, :rate_limit_low}
           {:error, reason} -> {:logs_failed, job_id, reason}
         end
       end)
@@ -145,6 +150,15 @@ defmodule DeployLensWeb.DashboardLive do
     {:noreply, socket}
   end
 
+  def handle_info({_ref, {:jobs_failed, run_id, :rate_limit_low}}, socket) do
+    socket =
+      socket
+      |> put_flash(:error, "GitHub API rate limit is low. Please try again later.")
+      |> update(:loading_jobs, &MapSet.delete(&1, run_id))
+
+    {:noreply, socket}
+  end
+
   # --- CORRECTED ---
   # Generic handler for failed async fetches.
   def handle_info({_ref, {:jobs_failed, run_id, _reason}}, socket) do
@@ -152,6 +166,15 @@ defmodule DeployLensWeb.DashboardLive do
       socket
       |> put_flash(:error, "Failed to fetch jobs for run ##{run_id}")
       |> update(:loading_jobs, &MapSet.delete(&1, run_id))
+
+    {:noreply, socket}
+  end
+
+  def handle_info({_ref, {:logs_failed, job_id, :rate_limit_low}}, socket) do
+    socket =
+      socket
+      |> put_flash(:error, "GitHub API rate limit is low. Please try again later.")
+      |> update(:loading_logs, &MapSet.delete(&1, job_id))
 
     {:noreply, socket}
   end

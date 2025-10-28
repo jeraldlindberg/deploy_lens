@@ -15,6 +15,7 @@ defmodule DeployLens.Application do
       # Start a worker by calling: DeployLens.Worker.start_link(arg)
       # {DeployLens.Worker, arg},
       DeployLens.LogCache,
+      DeployLens.RateLimitCache,
       # Start to serve requests, typically the last entry
       DeployLensWeb.Endpoint
     ]
