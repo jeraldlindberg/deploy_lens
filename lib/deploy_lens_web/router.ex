@@ -21,9 +21,11 @@ defmodule DeployLensWeb.Router do
   end
 
   # Other scopes may use custom stacks.
-  # scope "/api", DeployLensWeb do
-  #   pipe_through :api
-  # end
+  scope "/api", DeployLensWeb do
+    pipe_through :api
+
+    post "/github/webhook", GithubWebhookController, :index
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:deploy_lens, :dev_routes) do
