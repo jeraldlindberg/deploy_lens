@@ -5,21 +5,34 @@ defmodule DeployLensWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok,
-     assign(socket,
-       # Existing state
-       workflow_runs: [],
-       loading: false,
-       # New state
-       owner: nil,
-       repo: nil,
-       jobs_cache: %{},
-       log_cache: %{},
-       expanded_runs: MapSet.new(),
-       expanded_logs: MapSet.new(),
-       loading_jobs: MapSet.new(),
-       loading_logs: MapSet.new()
-     )}
+    socket = 
+      assign(socket,
+        # Existing state
+        workflow_runs: [],
+        loading: false,
+        # New state
+        owner: nil,
+        repo: nil,
+        jobs_cache: %{},
+        log_cache: %{},
+        expanded_runs: MapSet.new(),
+        expanded_logs: MapSet.new(),
+        loading_jobs: MapSet.new(),
+        loading_logs: MapSet.new(),
+        rate_limit: nil
+      )
+    {:ok, fetch_and_assign_rate_limit(socket)}
+  end
+
+  defp fetch_and_assign_rate_limit(socket) do
+    token = Application.get_env(:deploy_lens, :github_pat)
+    client = GitHubClient.new(token)
+    case GitHubClient.get_rate_limit(client) do
+      {:ok, %{body: rate_limit}} ->
+        assign(socket, :rate_limit, rate_limit)
+      _ ->
+        socket
+    end
   end
 
   @impl true
@@ -30,7 +43,11 @@ defmodule DeployLensWeb.DashboardLive do
 
     case GitHubClient.get_workflow_runs(client, owner, repo) do
       {:ok, %{body: %{"workflow_runs" => runs}}} ->
-        {:noreply, assign(socket, workflow_runs: runs, loading: false)}
+        socket = 
+          socket
+          |> assign(workflow_runs: runs, loading: false)
+          |> fetch_and_assign_rate_limit()
+        {:noreply, socket}
 
       {:error, :rate_limit_low} ->
         {:noreply, put_flash(socket, :error, "GitHub API rate limit is low. Please try again later.")}
@@ -134,6 +151,7 @@ defmodule DeployLensWeb.DashboardLive do
       |> update(:loading_jobs, &MapSet.delete(&1, run_id))
       # Auto-expand when loaded
       |> update(:expanded_runs, &MapSet.put(&1, run_id))
+      |> fetch_and_assign_rate_limit()
 
     {:noreply, socket}
   end
@@ -146,6 +164,7 @@ defmodule DeployLensWeb.DashboardLive do
       |> update(:log_cache, &Map.put(&1, job_id, logs))
       |> update(:loading_logs, &MapSet.delete(&1, job_id))
       |> update(:expanded_logs, &MapSet.put(&1, job_id))
+      |> fetch_and_assign_rate_limit()
 
     {:noreply, socket}
   end
@@ -191,4 +210,16 @@ defmodule DeployLensWeb.DashboardLive do
 
   # Catch-all to ignore any other messages the process receives
   def handle_info(_msg, socket), do: {:noreply, socket}
+
+  defp format_reset_time(reset_timestamp) do
+    now = DateTime.utc_now() |> DateTime.to_unix()
+    remaining_seconds = reset_timestamp - now
+
+    if remaining_seconds <= 0 do
+      "now"
+    else
+      remaining_minutes = div(remaining_seconds, 60)
+      "in #{remaining_minutes} minutes"
+    end
+  end
 end

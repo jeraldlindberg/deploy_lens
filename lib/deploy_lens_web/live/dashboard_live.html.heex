@@ -1,6 +1,14 @@
 <div class="max-w-6xl mx-auto p-6">
   <h1 class="text-3xl font-bold mb-6">DeployLens Dashboard</h1>
 
+  <%= if @rate_limit do %>
+    <div class="text-sm text-gray-500 mb-4">
+      <span>API Calls Remaining: <%= @rate_limit["resources"]["core"]["remaining"] %> / <%= @rate_limit["resources"]["core"]["limit"] %></span>
+      <span> | </span>
+      <span>Resets in: <%= format_reset_time(@rate_limit["resources"]["core"]["reset"]) %></span>
+    </div>
+  <% end %>
+
   <form phx-submit="fetch_runs" class="mb-8">
     <div class="flex gap-4">
       <input type="text" name="owner" placeholder="Repository Owner" class="border p-2 rounded" required />
