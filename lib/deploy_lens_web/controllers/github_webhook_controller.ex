@@ -7,12 +7,16 @@ defmodule DeployLensWeb.GithubWebhookController do
     json(conn, %{status: "ok"})
   end
 
+  def index(conn, %{"workflow_job" => _workflow_job}) do
+    json(conn, %{status: "ok"})
+  end
+
   defp verify_signature(conn, _opts) do
     secret = Application.fetch_env!(:deploy_lens, :github_webhook_secret)
 
     case get_req_header(conn, "x-hub-signature-256") do
       [signature] ->
-        expected_signature = "sha256=" <> :crypto.mac(:hmac, :sha256, secret, conn.assigns.raw_body) |> Base.encode16(case: :lower)
+        expected_signature = "sha256=" <> (:crypto.mac(:hmac, :sha256, secret, conn.assigns.raw_body) |> Base.encode16(case: :lower))
 
         if Plug.Crypto.secure_compare(signature, expected_signature) do
           conn
