@@ -19,7 +19,8 @@ defmodule DeployLensWeb.DashboardLive do
         expanded_logs: MapSet.new(),
         loading_jobs: MapSet.new(),
         loading_logs: MapSet.new(),
-        rate_limit: nil
+        rate_limit: nil,
+        page: 1
       )
     {:ok, fetch_and_assign_rate_limit(socket)}
   end
@@ -37,31 +38,20 @@ defmodule DeployLensWeb.DashboardLive do
 
   @impl true
   def handle_event("fetch_runs", %{"owner" => owner, "repo" => repo}, socket) do
-    token = Application.get_env(:deploy_lens, :github_pat)
-    client = GitHubClient.new(token)
-    socket = assign(socket, loading: true, owner: owner, repo: repo)
-
-    case GitHubClient.get_workflow_runs(client, owner, repo) do
-      {:ok, %{body: %{"workflow_runs" => runs}}} ->
-        socket = 
-          socket
-          |> assign(workflow_runs: runs, loading: false)
-          |> fetch_and_assign_rate_limit()
-        {:noreply, socket}
-
-      {:error, :rate_limit_low} ->
-        {:noreply, put_flash(socket, :error, "GitHub API rate limit is low. Please try again later.")}
-
-      {:ok, %{status: status, body: body}} ->
-        error_msg = "GitHub API returned status #{status}: #{inspect(body)}"
-        {:noreply, socket |> put_flash(:error, error_msg) |> assign(loading: false)}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to fetch workflow runs")}
-    end
+    socket = assign(socket, owner: owner, repo: repo, page: 1)
+    fetch_and_assign_workflow_runs(socket)
   end
 
-  # --- This function remains the same ---
+  def handle_event("next_page", _, socket) do
+    socket = update(socket, :page, &(&1 + 1))
+    fetch_and_assign_workflow_runs(socket)
+  end
+
+  def handle_event("prev_page", _, socket) do
+    socket = update(socket, :page, &(&1 - 1))
+    fetch_and_assign_workflow_runs(socket)
+  end
+
   def handle_event("toggle_jobs", %{"run-id" => run_id}, socket) do
     run_id = String.to_integer(run_id)
 
@@ -110,7 +100,6 @@ defmodule DeployLensWeb.DashboardLive do
     {:noreply, socket}
   end
 
-  # --- This function remains the same, but the task now returns the message ---
   def handle_event("fetch_logs", %{"job-id" => job_id}, socket) do
     job_id = String.to_integer(job_id)
 
@@ -138,6 +127,34 @@ defmodule DeployLensWeb.DashboardLive do
       end)
 
       {:noreply, socket}
+    end
+  end
+
+  defp fetch_and_assign_workflow_runs(socket) do
+    token = Application.get_env(:deploy_lens, :github_pat)
+    client = GitHubClient.new(token)
+    per_page = Application.get_env(:deploy_lens, :workflow_runs_page_size, 10)
+    %{owner: owner, repo: repo, page: page} = socket.assigns
+
+    socket = assign(socket, loading: true)
+
+    case GitHubClient.get_workflow_runs(client, owner, repo, page, per_page) do
+      {:ok, %{body: %{"workflow_runs" => runs}}} ->
+        socket = 
+          socket
+          |> assign(workflow_runs: runs, loading: false)
+          |> fetch_and_assign_rate_limit()
+        {:noreply, socket}
+
+      {:error, :rate_limit_low} ->
+        {:noreply, put_flash(socket, :error, "GitHub API rate limit is low. Please try again later.")}
+
+      {:ok, %{status: status, body: body}} ->
+        error_msg = "GitHub API returned status #{status}: #{inspect(body)}"
+        {:noreply, socket |> put_flash(:error, error_msg) |> assign(loading: false)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to fetch workflow runs")}
     end
   end
 

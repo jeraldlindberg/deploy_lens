@@ -24,9 +24,9 @@ defmodule DeployLens.GitHubClient do
     )
   end
 
-  def get_workflow_runs(client, owner, repo) do
+  def get_workflow_runs(client, owner, repo, page, per_page) do
     safe_request(client, fn client ->
-      get(client, "/repos/#{owner}/#{repo}/actions/runs")
+      get(client, "/repos/#{owner}/#{repo}/actions/runs", params: [page: page, per_page: per_page])
     end)
   end
 

@@ -8,7 +8,8 @@
 import Config
 
 config :deploy_lens,
-  github_rate_limit_threshold: 100,  ecto_repos: [DeployLens.Repo],
+  github_rate_limit_threshold: 100,
+  workflow_runs_page_size: 10,  ecto_repos: [DeployLens.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
