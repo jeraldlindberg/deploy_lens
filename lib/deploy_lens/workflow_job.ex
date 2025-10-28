@@ -14,7 +14,7 @@ defmodule DeployLens.WorkflowJob do
     field :html_url, :string
     field :runner_name, :string
     field :runner_group_name, :string
-    field :steps, :map
+    field :steps, :map, default: %{}
 
     timestamps()
   end

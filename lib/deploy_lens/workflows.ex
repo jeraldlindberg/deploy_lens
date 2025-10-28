@@ -192,4 +192,22 @@ defmodule DeployLens.Workflows do
   def change_workflow_job(%WorkflowJob{} = workflow_job, attrs \\ %{}) do
     WorkflowJob.changeset(workflow_job, attrs)
   end
+
+  @doc """
+  Creates or updates a workflow_run.
+  """
+  def create_or_update_workflow_run(attrs) do
+    %WorkflowRun{}
+    |> WorkflowRun.changeset(attrs)
+    |> Repo.insert(on_conflict: :nothing, conflict_target: :github_id)
+  end
+
+  @doc """
+  Creates or updates a workflow_job.
+  """
+  def create_or_update_workflow_job(attrs) do
+    %WorkflowJob{}
+    |> WorkflowJob.changeset(attrs)
+    |> Repo.insert(on_conflict: :nothing, conflict_target: :github_id)
+  end
 end
