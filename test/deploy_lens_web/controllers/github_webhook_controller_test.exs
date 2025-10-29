@@ -49,6 +49,26 @@ defmodule DeployLensWeb.GithubWebhookControllerTest do
     end
 
     test "returns 200 for a valid workflow_job event and upserts the job", %{conn: conn} do
+      # Create a workflow_run first, so the job has something to associate with.
+      run_attrs = %{
+        "id" => 123,
+        "name" => "CI",
+        "head_branch" => "main",
+        "status" => "in_progress",
+        "conclusion" => nil,
+        "url" => "http://example.com/run/123",
+        "html_url" => "http://example.com/run/123/html",
+        "run_attempt" => 1,
+        "run_number" => 1,
+        "repository" => %{
+          "id" => 456,
+          "full_name" => "owner/repo"
+        },
+        "created_at" => "2025-01-01T00:00:00Z",
+        "updated_at" => "2025-01-01T00:00:00Z"
+      }
+      {:ok, _} = DeployLens.Workflows.create_or_update_workflow_run(run_attrs)
+
       payload = ~s({
         "action": "completed",
         "workflow_job": {

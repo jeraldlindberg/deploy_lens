@@ -100,9 +100,11 @@ describe "workflow_jobs" do
     end
 
     test "create_workflow_job/1 with valid data creates a workflow_job" do
+      workflow_run = workflow_run_fixture()
       valid_attrs = %{
         github_id: 1,
-        workflow_run_id: 1,
+        workflow_run_id: workflow_run.github_id,
+        run_attempt: workflow_run.run_attempt,
         name: "build",
         status: "completed",
         conclusion: "success",
@@ -148,10 +150,14 @@ describe "workflow_jobs" do
     end
 
     defp workflow_job_fixture(attrs \\ %{}) do
+      run_attrs = attrs |> Map.get(:workflow_run, %{}) |> Map.put_new(:github_id, 300 + System.unique_integer([:positive]))
+      workflow_run = workflow_run_fixture(run_attrs)
+
       {:ok, workflow_job} = Workflows.create_workflow_job(
         %{ 
           github_id: 200 + System.unique_integer([:positive]),
-          workflow_run_id: 1,
+          workflow_run_id: workflow_run.github_id,
+          run_attempt: workflow_run.run_attempt,
           name: "build",
           status: "completed",
           conclusion: "success",

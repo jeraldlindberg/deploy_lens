@@ -112,17 +112,17 @@ defmodule DeployLensWeb.DashboardLive do
 
       :local_first ->
         case DeployLens.Workflows.get_workflow_job_by_github_id(job_id) do
-          %DeployLens.WorkflowJob{steps: steps} when steps != %{} ->
+          %DeployLens.WorkflowJob{logs: logs} when not is_nil(logs) ->
             # Local data found
             socket =
               socket
-              |> update(:log_cache, &Map.put(&1, job_id, steps))
+              |> update(:log_cache, &Map.put(&1, job_id, logs))
               |> update(:expanded_logs, &MapSet.put(&1, job_id))
 
             {:noreply, socket}
 
           _ ->
-            # No local data or empty steps, fetch from API
+            # No local data or empty logs, fetch from API
             fetch_logs_from_api(socket, job_id)
         end
     end
@@ -135,8 +135,9 @@ defmodule DeployLensWeb.DashboardLive do
 
     Task.async(fn ->
       case GitHubClient.get_workflow_run_jobs(client, owner, repo, run_id) do
-        {:ok, %{body: %{"jobs" => jobs}}} -> {:jobs_fetched, run_id, jobs}
+        {:ok, %{"jobs" => jobs}} -> {:jobs_fetched, run_id, jobs}
         {:error, :rate_limit_low} -> {:jobs_failed, run_id, :rate_limit_low}
+        {:error, :initial_rate_limit_fetch_failed, reason} -> {:jobs_failed, run_id, {:initial_rate_limit_fetch_failed, reason}}
         {:error, reason} -> {:jobs_failed, run_id, reason}
       end
     end)
@@ -247,6 +248,8 @@ defmodule DeployLensWeb.DashboardLive do
   # Handles successful log fetch.
   @impl true
   def handle_info({_ref, {:logs_fetched, job_id, logs}}, socket) do
+    DeployLens.Workflows.update_workflow_job_logs(job_id, logs)
+
     socket =
       socket
       |> update(:log_cache, &Map.put(&1, job_id, logs))
@@ -261,6 +264,15 @@ defmodule DeployLensWeb.DashboardLive do
     socket =
       socket
       |> put_flash(:error, "GitHub API rate limit is low. Please try again later.")
+      |> update(:loading_jobs, &MapSet.delete(&1, run_id))
+
+    {:noreply, socket}
+  end
+
+  def handle_info({_ref, {:jobs_failed, run_id, {:initial_rate_limit_fetch_failed, reason}}}, socket) do
+    socket =
+      socket
+      |> put_flash(:error, "Failed to fetch jobs for run ##{run_id}: #{reason}")
       |> update(:loading_jobs, &MapSet.delete(&1, run_id))
 
     {:noreply, socket}

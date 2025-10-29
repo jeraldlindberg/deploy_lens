@@ -68,6 +68,7 @@ defmodule DeployLens.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:ecto_psql_extras, "~> 0.7.5"},
       {:mock, "~> 0.3.0", only: [:dev, :test]}
     ]
   end

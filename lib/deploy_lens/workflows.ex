@@ -234,10 +234,13 @@ defmodule DeployLens.Workflows do
   """
   def create_or_update_workflow_job(attrs) do
     # 1. Map string keys to atom keys
+    workflow_run_id = attrs["run_id"] || attrs["workflow_run_id"]
+    workflow_run = Repo.get_by!(WorkflowRun, github_id: workflow_run_id)
+
     mapped_attrs = %{
       :github_id => attrs["id"],
-      # Handle both keys
-      :workflow_run_id => attrs["run_id"] || attrs["workflow_run_id"],
+      :workflow_run_id => workflow_run_id,
+      :run_attempt => workflow_run.run_attempt,
       :name => attrs["name"],
       :status => attrs["status"],
       :conclusion => attrs["conclusion"],
@@ -293,8 +296,13 @@ defmodule DeployLens.Workflows do
   Returns the list of workflow jobs for a given workflow run's GitHub ID.
   """
   def get_workflow_jobs_by_run_id(workflow_run_github_id) do
+    latest_run_attempt = 
+      from(wr in WorkflowRun, 
+        where: wr.github_id == ^workflow_run_github_id, 
+        select: wr.run_attempt) |> Repo.one()
+
     WorkflowJob
-    |> where([wj], wj.workflow_run_id == ^workflow_run_github_id)
+    |> where([wj], wj.workflow_run_id == ^workflow_run_github_id and wj.run_attempt == ^latest_run_attempt)
     |> order_by([wj], desc: wj.github_id)
     |> Repo.all()
   end
@@ -304,6 +312,13 @@ defmodule DeployLens.Workflows do
   """
   def get_workflow_job_by_github_id(github_id) do
     Repo.get_by(WorkflowJob, github_id: github_id)
+  end
+
+  def update_workflow_job_logs(job_id, logs) do
+    job = get_workflow_job_by_github_id(job_id)
+    job
+    |> WorkflowJob.changeset(%{logs: logs})
+    |> Repo.update()
   end
 
   # --- Helpers ---

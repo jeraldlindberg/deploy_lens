@@ -10,10 +10,10 @@ defmodule DeployLensWeb.Telemetry do
   def init(_arg) do
     children = [
       # Telemetry poller will execute the given period measurements
-      # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
+      # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics/Telemetry.Metrics.Poller.html
+      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000},
       # Add reporters as children of your supervision tree.
-      # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
+      {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
@@ -21,72 +21,40 @@ defmodule DeployLensWeb.Telemetry do
 
   def metrics do
     [
-      # Phoenix Metrics
-      summary("phoenix.endpoint.start.system_time",
-        unit: {:native, :millisecond}
+      # GitHub API Metrics
+      counter("github.client.request.count",
+        event_name: [:github_client, :request]
       ),
-      summary("phoenix.endpoint.stop.duration",
-        unit: {:native, :millisecond}
+      counter("github.client.request.success.count",
+        event_name: [:github_client, :request, :success]
       ),
-      summary("phoenix.router_dispatch.start.system_time",
-        tags: [:route],
-        unit: {:native, :millisecond}
+      counter("github.client.request.error.count",
+        event_name: [:github_client, :request, :error]
       ),
-      summary("phoenix.router_dispatch.exception.duration",
-        tags: [:route],
-        unit: {:native, :millisecond}
-      ),
-      summary("phoenix.router_dispatch.stop.duration",
-        tags: [:route],
-        unit: {:native, :millisecond}
-      ),
-      summary("phoenix.socket_connected.duration",
-        unit: {:native, :millisecond}
-      ),
-      sum("phoenix.socket_drain.count"),
-      summary("phoenix.channel_joined.duration",
-        unit: {:native, :millisecond}
-      ),
-      summary("phoenix.channel_handled_in.duration",
-        tags: [:event],
-        unit: {:native, :millisecond}
+      counter("github.client.rate_limit_low.count",
+        event_name: [:github_client, :rate_limit_low]
       ),
 
-      # Database Metrics
-      summary("deploy_lens.repo.query.total_time",
-        unit: {:native, :millisecond},
-        description: "The sum of the other measurements"
+      # Log Cache Metrics
+      counter("log_cache.hit.count",
+        event_name: [:github_client, :get_job_logs, :cache_hit]
       ),
-      summary("deploy_lens.repo.query.decode_time",
-        unit: {:native, :millisecond},
-        description: "The time spent decoding the data received from the database"
+      counter("log_cache.miss.count",
+        event_name: [:github_client, :get_job_logs, :cache_miss]
       ),
-      summary("deploy_lens.repo.query.query_time",
-        unit: {:native, :millisecond},
-        description: "The time spent executing the query"
+      counter("github.client.get_job_logs.error.count",
+        event_name: [:github_client, :get_job_logs, :error]
       ),
-      summary("deploy_lens.repo.query.queue_time",
-        unit: {:native, :millisecond},
-        description: "The time spent waiting for a database connection"
-      ),
-      summary("deploy_lens.repo.query.idle_time",
-        unit: {:native, :millisecond},
-        description:
-          "The time the connection spent waiting before being checked out for the query"
-      ),
-
-      # VM Metrics
-      summary("vm.memory.total", unit: {:byte, :kilobyte}),
-      summary("vm.total_run_queue_lengths.total"),
-      summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      counter("github.client.get_job_logs.success.count",
+        event_name: [:github_client, :get_job_logs, :success]
+      )
     ]
   end
 
   defp periodic_measurements do
     [
       # A module, function and arguments to be invoked periodically.
-      # This function must call :telemetry.execute/3 and a metric must be added above.
+      # This function must call :telemetry.execute/3 and a metric must be defined above.
       # {DeployLensWeb, :count_users, []}
     ]
   end
