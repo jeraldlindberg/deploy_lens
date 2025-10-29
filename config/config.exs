@@ -33,6 +33,7 @@ config :deploy_lens, DeployLensWeb.Endpoint,
 # at the `config/runtime.exs`.
 config :deploy_lens, DeployLens.Mailer, adapter: Swoosh.Adapters.Local
 
+config :tesla, disable_deprecated_builder_warning: true
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
