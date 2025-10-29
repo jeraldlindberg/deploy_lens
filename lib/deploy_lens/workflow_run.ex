@@ -27,6 +27,5 @@ defmodule DeployLens.WorkflowRun do
     |> validate_required([:github_id, :repository_id, :repository_full_name, :head_branch,
                           :workflow_name, :status, :url, :html_url,
                           :run_attempt, :run_number])
-    |> unique_constraint(:github_id)
   end
 end

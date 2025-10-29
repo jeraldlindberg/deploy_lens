@@ -27,6 +27,5 @@ defmodule DeployLens.WorkflowJob do
                     :runner_name, :runner_group_name, :steps])
     |> validate_required([:github_id, :workflow_run_id, :name, :status,
                           :started_at, :url, :html_url])
-    |> unique_constraint(:github_id)
   end
 end

@@ -53,22 +53,22 @@
         <div class="border p-4 rounded shadow">
           <div class="flex justify-between items-center">
             <div>
-              <h3 class="font-bold"><%= run["name"] %> (#<%= run["id"] %>)</h3>
-              <p>Status: <span class="font-semibold"><%= run["status"] %></span></p>
-              <p>Conclusion: <%= run["conclusion"] %></p>
-              <p>Started: <%= run["created_at"] %></p>
+              <h3 class="font-bold"><%= run.workflow_name %> (#<%= run.github_id %>)</h3>
+              <p>Status: <span class="font-semibold"><%= run.status %></span></p>
+              <p>Conclusion: <%= run.conclusion %></p>
+              <p>Started: <%= run.inserted_at %></p>
             </div>
             <div>
-              <.button phx-click="toggle_jobs" phx-value-run-id={run["id"]} phx-disable-with="Loading Jobs...">
-                <%= if run["id"] in @expanded_runs, do: "Hide Jobs", else: "Show Jobs" %>
+              <.button phx-click="toggle_jobs" phx-value-run-id={run.github_id} phx-disable-with="Loading Jobs...">
+                <%= if run.github_id in @expanded_runs, do: "Hide Jobs", else: "Show Jobs" %>
               </.button>
             </div>
           </div>
 
-          <%= if run["id"] in @expanded_runs do %>
+          <%= if run.github_id in @expanded_runs do %>
             <div class="mt-4 pl-6 border-l-2 space-y-3">
               <h4 class="font-semibold text-lg">Jobs</h4>
-              <%= if run["id"] in @loading_jobs do %>
+              <%= if run.github_id in @loading_jobs do %>
                 <div class="space-y-3">
                   <%= for _ <- 1..2 do %>
                     <div class="border-t pt-3">
@@ -78,38 +78,38 @@
                   <% end %>
                 </div>
               <% else %>
-                <%= for job <- @jobs_cache[run["id"]] || [] do %>
+                <%= for job <- @jobs_cache[run.github_id] || [] do %>
                   <div class="border-t pt-3">
-                    <p><strong><%= job["name"] %></strong> (Status: <%= job["status"] %>, Conclusion: <%= job["conclusion"] %>)</p>
+                    <p><strong><%= job.name %></strong> (Status: <%= job.status %>, Conclusion: <%= job.conclusion %>)</p>
                     
-                    <%= if logs = @log_cache[job["id"]] do %>
+                    <%= if logs = @log_cache[job.github_id] do %>
                       <div class="flex items-center gap-2 mt-2">
                         <.button
                           phx-click="toggle_logs"
-                          phx-value-job-id={job["id"]}
+                          phx-value-job-id={job.github_id}
                           class="btn-sm"
                         >
                           <div class="flex items-center gap-2">
-                            <span><%= if job["id"] in @expanded_logs, do: "Hide Logs", else: "Show Logs" %></span>
+                            <span><%= if job.github_id in @expanded_logs, do: "Hide Logs", else: "Show Logs" %></span>
                             <.icon
-                              name={if job["id"] in @expanded_logs, do: "hero-chevron-up", else: "hero-chevron-down"}
+                              name={if job.github_id in @expanded_logs, do: "hero-chevron-up", else: "hero-chevron-down"}
                               class="size-5"
                             />
                           </div>
                         </.button>
-                        <.button class="btn-sm" phx-hook="CopyToClipboard" data-target={"#log-#{job["id"]}"}>Copy</.button>
+                        <.button class="btn-sm" phx-hook="CopyToClipboard" data-target={"#log-#{job.github_id}"}>Copy</.button>
                       </div>
-                      <%= if job["id"] in @expanded_logs do %>
-                        <pre id={"log-#{job["id"]}"} class="bg-gray-800 text-white text-sm p-4 rounded-md mt-2 max-h-96 overflow-auto pre-wrap"><%= raw(format_log(logs)) %></pre>
+                      <%= if job.github_id in @expanded_logs do %>
+                        <pre id={"log-#{job.github_id}"} class="bg-gray-800 text-white text-sm p-4 rounded-md mt-2 max-h-96 overflow-auto pre-wrap"><%= raw(format_log(logs)) %></pre>
                       <% end %>
                     <% else %>
                       <.button
                         phx-click="fetch_logs"
-                        phx-value-job-id={job["id"]}
+                        phx-value-job-id={job.github_id}
                         phx-disable-with=""
                         class="mt-2 btn-sm"
                       >
-                        <%= if job["id"] in @loading_logs do %>
+                        <%= if job.github_id in @loading_logs do %>
                           <.spinner class="size-4" />
                         <% else %>
                           View Logs

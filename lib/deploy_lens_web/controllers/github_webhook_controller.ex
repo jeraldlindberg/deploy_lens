@@ -6,71 +6,59 @@ defmodule DeployLensWeb.GithubWebhookController do
   plug :verify_signature
 
   def index(conn, _params) do
-    event_type = get_req_header(conn, "x-github-event") |> hd()
+    event_type = get_req_header(conn, "x-github-event") |> List.first()
     payload = Jason.decode!(conn.assigns.raw_body)
 
     case event_type do
       "workflow_run" -> handle_workflow_run_event(conn, payload)
       "workflow_job" -> handle_workflow_job_event(conn, payload)
-      _ -> json(conn, %{status: "ok"}) # Ignore other events for now
+      # Ignore other events
+      _ -> json(conn, %{status: "ok"})
     end
   end
 
-  defp handle_workflow_run_event(conn, %{"workflow_run" => run, "repository" => repo}) do
-    workflow_run_data = %{
-      github_id: run["id"],
-      repository_id: repo["id"],
-      repository_full_name: repo["full_name"],
-      head_branch: run["head_branch"],
-      workflow_name: run["name"],
-      status: run["status"],
-      conclusion: run["conclusion"],
-      url: run["url"],
-      html_url: run["html_url"],
-      run_attempt: run["run_attempt"],
-      run_number: run["run_number"]
-    }
+  defp handle_workflow_run_event(conn, %{"workflow_run" => run_attrs, "repository" => repo_attrs}) do
+    full_attrs = Map.put(run_attrs, "repository", repo_attrs)
 
-    case Workflows.create_or_update_workflow_run(workflow_run_data) do
+    case Workflows.create_or_update_workflow_run(full_attrs) do
       {:ok, _workflow_run} ->
         json(conn, %{status: "ok"})
+
       {:error, changeset} ->
+        errors = Ecto.Changeset.traverse_errors(changeset, &elem(&1, 0))
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{errors: changeset.errors})
+        |> json(%{errors: errors})
     end
   end
 
-  defp handle_workflow_job_event(conn, %{"workflow_job" => job}) do
-    steps_data = case job["steps"] do
-      list when is_list(list) -> Enum.with_index(list) |> Map.new(fn {item, index} -> {"step_#{index}", item} end)
-      map when is_map(map) -> map
-      _ -> %{}
-    end
+  # Handle cases where the payload is missing expected keys
+  defp handle_workflow_run_event(conn, _payload) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Malformed workflow_run payload"})
+  end
 
-    workflow_job_data = %{
-      github_id: job["id"],
-      workflow_run_id: job["run_id"],
-      name: job["name"],
-      status: job["status"],
-      conclusion: job["conclusion"],
-      started_at: job["started_at"],
-      completed_at: job["completed_at"],
-      url: job["url"],
-      html_url: job["html_url"],
-      runner_name: job["runner_name"],
-      runner_group_name: job["runner_group_name"],
-      steps: steps_data
-    }
-
-    case Workflows.create_or_update_workflow_job(workflow_job_data) do
+  defp handle_workflow_job_event(conn, %{"workflow_job" => job_attrs}) do
+    case Workflows.create_or_update_workflow_job(job_attrs) do
       {:ok, _workflow_job} ->
         json(conn, %{status: "ok"})
+
       {:error, changeset} ->
+        errors = Ecto.Changeset.traverse_errors(changeset, &elem(&1, 0))
+
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{errors: changeset.errors})
+        |> json(%{errors: errors})
     end
+  end
+
+  # Handle cases where the payload is missing expected keys
+  defp handle_workflow_job_event(conn, _payload) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Malformed workflow_job payload"})
   end
 
   defp verify_signature(conn, _opts) do
@@ -78,7 +66,12 @@ defmodule DeployLensWeb.GithubWebhookController do
 
     case get_req_header(conn, "x-hub-signature-256") do
       [signature] ->
-        expected_signature = "sha256=" <> (:crypto.mac(:hmac, :sha256, secret, conn.assigns.raw_body) |> Base.encode16(case: :lower))
+        # This correctly uses conn.assigns.raw_body, which is assumed
+        # to be populated before Plug.Parsers (e.g., in the Endpoint)
+        expected_signature =
+          "sha256=" <>
+            (:crypto.mac(:hmac, :sha256, secret, conn.assigns.raw_body)
+             |> Base.encode16(case: :lower))
 
         if Plug.Crypto.secure_compare(signature, expected_signature) do
           conn
@@ -88,6 +81,7 @@ defmodule DeployLensWeb.GithubWebhookController do
           |> text("Invalid signature")
           |> halt()
         end
+
       _ ->
         conn
         |> put_status(400)

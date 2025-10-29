@@ -10,7 +10,9 @@ import Config
 config :deploy_lens,
   github_webhook_secret: System.get_env("GITHUB_WEBHOOK_SECRET"),
   github_rate_limit_threshold: 100,
-  workflow_runs_page_size: 10,  ecto_repos: [DeployLens.Repo],
+  workflow_runs_page_size: 10,
+  data_source_mode: :local_first,
+  ecto_repos: [DeployLens.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
@@ -34,6 +36,7 @@ config :deploy_lens, DeployLensWeb.Endpoint,
 config :deploy_lens, DeployLens.Mailer, adapter: Swoosh.Adapters.Local
 
 config :tesla, disable_deprecated_builder_warning: true
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
